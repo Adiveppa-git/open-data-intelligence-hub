@@ -1,0 +1,313 @@
+{
+  "nodes": [
+    {
+      "id": "web-portal",
+      "type": "Frontend component",
+      "name": "Web Checkout Portal",
+      "description": "Customer-facing web ecommerce storefront application."
+    },
+    {
+      "id": "mobile-app",
+      "type": "Frontend component",
+      "name": "Mobile Shopping App",
+      "description": "iOS and Android customer shopping application."
+    },
+    {
+      "id": "admin-console",
+      "type": "Frontend component",
+      "name": "Backoffice Admin Console",
+      "description": "Operations and administration management dashboard."
+    },
+    {
+      "id": "edge-api-gateway",
+      "type": "API gateway",
+      "name": "Edge API Gateway",
+      "description": "Central reverse proxy routing client traffic and handling edge rate limiting."
+    },
+    {
+      "id": "route-auth-login",
+      "type": "API route",
+      "name": "/api/v1/auth/login",
+      "description": "User login endpoint issuing session authentication tokens."
+    },
+    {
+      "id": "route-auth-verify",
+      "type": "API route",
+      "name": "/api/v1/auth/verify",
+      "description": "Internal token verification route invoked to validate credentials."
+    },
+    {
+      "id": "route-orders-checkout",
+      "type": "API route",
+      "name": "/api/v1/orders/checkout",
+      "description": "Checkout endpoint orchestrating order placement and billing."
+    },
+    {
+      "id": "route-payments-charge",
+      "type": "API route",
+      "name": "/api/v1/payments/charge",
+      "description": "Payment processing endpoint handling credit card charges."
+    },
+    {
+      "id": "route-inventory-reserve",
+      "type": "API route",
+      "name": "/api/v1/inventory/reserve",
+      "description": "Stock reservation endpoint holding items during order processing."
+    },
+    {
+      "id": "route-user-profile",
+      "type": "API route",
+      "name": "/api/v1/users/profile",
+      "description": "Customer profile and address retrieval endpoint."
+    },
+    {
+      "id": "auth-service",
+      "type": "Microservice",
+      "name": "Authentication Service",
+      "description": "Core authentication microservice handling session state and token validation."
+    },
+    {
+      "id": "order-service",
+      "type": "Microservice",
+      "name": "Order Service",
+      "description": "Manages shopping carts, order status, and checkout workflows."
+    },
+    {
+      "id": "payment-service",
+      "type": "Microservice",
+      "name": "Payment Service",
+      "description": "Handles payment transactions, invoicing, and gateway integrations."
+    },
+    {
+      "id": "inventory-service",
+      "type": "Microservice",
+      "name": "Inventory Service",
+      "description": "Tracks warehouse stock quantities, allocations, and restocks."
+    },
+    {
+      "id": "user-service",
+      "type": "Microservice",
+      "name": "User Service",
+      "description": "Manages user account records, personal data, and preferences."
+    },
+    {
+      "id": "notification-service",
+      "type": "Microservice",
+      "name": "Notification Service",
+      "description": "Dispatches transactional emails, SMS notifications, and push alerts."
+    },
+    {
+      "id": "legacy-auth-module",
+      "type": "Shared module",
+      "name": "Legacy Auth Module",
+      "description": "Deprecated shared token verification and cryptographic utility library."
+    },
+    {
+      "id": "common-logger-lib",
+      "type": "Shared module",
+      "name": "Common Logging Library",
+      "description": "Shared JSON structured logging and distributed tracing library."
+    },
+    {
+      "id": "shared-customer-db",
+      "type": "Database",
+      "name": "Shared Customer PostgreSQL DB",
+      "description": "Relational database storing user credentials, profiles, and billing records."
+    },
+    {
+      "id": "order-document-db",
+      "type": "Database",
+      "name": "Order Document Database",
+      "description": "NoSQL document store holding customer purchase orders."
+    },
+    {
+      "id": "inventory-sql-db",
+      "type": "Database",
+      "name": "Inventory SQL Database",
+      "description": "Relational database maintaining stock levels and SKU metadata."
+    },
+    {
+      "id": "shared-session-cache",
+      "type": "Cache",
+      "name": "Shared Redis Session Cache",
+      "description": "Distributed in-memory cache holding active user authentication sessions."
+    }
+  ],
+  "edges": [
+    {
+      "source": "web-portal",
+      "target": "route-orders-checkout",
+      "type": "CALLS"
+    },
+    {
+      "source": "web-portal",
+      "target": "route-auth-login",
+      "type": "CALLS"
+    },
+    {
+      "source": "mobile-app",
+      "target": "route-orders-checkout",
+      "type": "CALLS"
+    },
+    {
+      "source": "mobile-app",
+      "target": "route-auth-login",
+      "type": "CALLS"
+    },
+    {
+      "source": "admin-console",
+      "target": "route-user-profile",
+      "type": "CALLS"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "route-auth-login",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "route-auth-verify",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "route-orders-checkout",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "route-payments-charge",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "route-user-profile",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "edge-api-gateway",
+      "target": "legacy-auth-module",
+      "type": "AUTHENTICATES_WITH"
+    },
+    {
+      "source": "route-auth-login",
+      "target": "auth-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "route-auth-verify",
+      "target": "auth-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "route-orders-checkout",
+      "target": "order-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "route-payments-charge",
+      "target": "payment-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "route-inventory-reserve",
+      "target": "inventory-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "route-user-profile",
+      "target": "user-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "auth-service",
+      "target": "legacy-auth-module",
+      "type": "USES"
+    },
+    {
+      "source": "user-service",
+      "target": "legacy-auth-module",
+      "type": "USES"
+    },
+    {
+      "source": "payment-service",
+      "target": "legacy-auth-module",
+      "type": "AUTHENTICATES_WITH"
+    },
+    {
+      "source": "order-service",
+      "target": "legacy-auth-module",
+      "type": "AUTHENTICATES_WITH"
+    },
+    {
+      "source": "order-service",
+      "target": "route-payments-charge",
+      "type": "CALLS"
+    },
+    {
+      "source": "order-service",
+      "target": "route-inventory-reserve",
+      "type": "CALLS"
+    },
+    {
+      "source": "order-service",
+      "target": "inventory-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "inventory-service",
+      "target": "order-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "order-service",
+      "target": "notification-service",
+      "type": "DEPENDS_ON"
+    },
+    {
+      "source": "auth-service",
+      "target": "shared-customer-db",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "user-service",
+      "target": "shared-customer-db",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "auth-service",
+      "target": "shared-session-cache",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "order-service",
+      "target": "shared-session-cache",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "order-service",
+      "target": "order-document-db",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "inventory-service",
+      "target": "inventory-sql-db",
+      "type": "CONNECTS_TO"
+    },
+    {
+      "source": "order-service",
+      "target": "common-logger-lib",
+      "type": "USES"
+    },
+    {
+      "source": "payment-service",
+      "target": "common-logger-lib",
+      "type": "USES"
+    },
+    {
+      "source": "inventory-service",
+      "target": "common-logger-lib",
+      "type": "USES"
+    }
+  ]
+}
