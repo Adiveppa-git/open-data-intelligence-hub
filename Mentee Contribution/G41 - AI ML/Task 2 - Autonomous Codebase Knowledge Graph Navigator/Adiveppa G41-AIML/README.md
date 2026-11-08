@@ -1,9 +1,5 @@
 # Adiveppa G41-AIML
 
-## AI/ML Internship Project
-
-This repository contains my AI/ML internship project work and contributions.
-
 ---
 
 # Task 2: Autonomous Codebase Knowledge Graph Navigator
