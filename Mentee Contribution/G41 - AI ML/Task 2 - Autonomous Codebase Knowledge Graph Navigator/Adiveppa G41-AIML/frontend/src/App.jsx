@@ -417,10 +417,73 @@ function AnalysisDetails({ result }) {
   )
 }
 
-function GraphView({ nodes, schema }) {
+function GraphView({ nodes, schema, openNodeId }) {
   const [category, setCategory] = useState('All')
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [selectedDetails, setSelectedDetails] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
   const categories = ['All', ...Object.keys(schema?.node_type_counts || {})]
   const filtered = nodes.filter((node) => category === 'All' || node.type === category)
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId)
+  const details = selectedDetails?.id === selectedNodeId ? selectedDetails : selectedNode
+
+  useEffect(() => {
+    if (openNodeId) setSelectedNodeId(openNodeId)
+  }, [openNodeId])
+
+  useEffect(() => {
+    if (!selectedNodeId) return undefined
+
+    let active = true
+    setDetailLoading(true)
+    setDetailError('')
+    api.node(selectedNodeId)
+      .then((result) => {
+        if (active) setSelectedDetails(result)
+      })
+      .catch((err) => {
+        if (active) setDetailError(err.message)
+      })
+      .finally(() => {
+        if (active) setDetailLoading(false)
+      })
+
+    return () => { active = false }
+  }, [selectedNodeId])
+
+  useEffect(() => {
+    if (!selectedNodeId) return undefined
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setSelectedNodeId(null)
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [selectedNodeId])
+
+  function renderRelationships(title, relatedIds) {
+    return (
+      <section className="component-relationships">
+        <h3>{title} <span>{relatedIds?.length || 0}</span></h3>
+        {relatedIds?.length ? (
+          <ul>
+            {relatedIds.map((id) => {
+              const relatedNode = nodes.find((node) => node.id === id)
+              return (
+                <li key={id}>
+                  <strong>{relatedNode?.name || id}</strong>
+                  {relatedNode?.type && <span>{relatedNode.type}</span>}
+                  <code>{id}</code>
+                </li>
+              )
+            })}
+          </ul>
+        ) : <p className="empty-copy">No relationships reported.</p>}
+      </section>
+    )
+  }
 
   return (
     <div className="view-stack">
@@ -435,7 +498,14 @@ function GraphView({ nodes, schema }) {
       }>
         <div className="node-grid">
           {filtered.map((node) => (
-            <article className="node-card" key={node.id}>
+            <button
+              className={`node-card ${selectedNodeId === node.id ? 'selected' : ''}`}
+              key={node.id}
+              type="button"
+              onClick={() => setSelectedNodeId(node.id)}
+              aria-haspopup="dialog"
+              aria-pressed={selectedNodeId === node.id}
+            >
               <div className={`node-symbol node-${node.type?.toLowerCase().replaceAll(' ', '-')}`}>
                 {node.type === 'Microservice' ? 'MS' : node.type === 'Database' ? 'DB' : node.type === 'API route' ? 'API' : node.type === 'Frontend component' ? 'UI' : node.type === 'Shared module' ? 'LIB' : 'N'}
               </div>
@@ -444,10 +514,48 @@ function GraphView({ nodes, schema }) {
                 <h3>{node.name}</h3>
                 <code>{node.id}</code>
               </div>
-            </article>
+            </button>
           ))}
         </div>
       </Panel>
+      {selectedNodeId && (
+        <div
+          className="component-dialog-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setSelectedNodeId(null)
+          }}
+        >
+          <section className="component-dialog" role="dialog" aria-modal="true" aria-labelledby="component-dialog-title">
+            <header className="component-dialog-header">
+              <div>
+                <span className="eyebrow">Component details</span>
+                <h2 id="component-dialog-title">{details?.name || selectedNodeId}</h2>
+              </div>
+              <button className="component-dialog-close" type="button" onClick={() => setSelectedNodeId(null)} aria-label="Close component details">
+                ×
+              </button>
+            </header>
+            <div className="component-dialog-content">
+              <div className="component-meta">
+                <div><span>Type</span><strong>{details?.type || '—'}</strong></div>
+                <div><span>ID</span><code>{details?.id || selectedNodeId}</code></div>
+              </div>
+              <section className="component-description">
+                <h3>Description</h3>
+                <p>{details?.description || 'No description available for this component.'}</p>
+              </section>
+              {detailLoading && <p className="component-loading" role="status">Loading relationships…</p>}
+              {detailError && <ErrorState message={detailError} />}
+              {!detailError && !detailLoading && details?.id === selectedNodeId && (
+                <div className="component-relationship-grid">
+                  {renderRelationships('Outgoing dependencies', details.direct_dependencies)}
+                  {renderRelationships('Incoming dependents', details.direct_dependents)}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
@@ -535,39 +643,44 @@ function AffectedList({ title, items }) {
   )
 }
 
-function CyclesView({ cycles, loading, error, onRetry }) {
+function CyclesView({ cycles, nodes, loading, error, onRetry, onOpenComponent }) {
+  const nodeNames = new Map(nodes.map((node) => [node.id, node.name]))
+
   return (
     <div className="view-stack">
       <div className="page-heading">
-        <div><span className="eyebrow">Architectural debt</span><h1>Circular Dependencies</h1></div>
+        <h1>Circular Dependencies</h1>
+        <span className="cycle-count">{loading ? '—' : cycles?.total_cycles ?? 0} cycles</span>
       </div>
       {error && <ErrorState message={error} onRetry={onRetry} />}
-      <div className="cycle-summary">
-        <MetricCard label="Detected cycles" value={loading ? '—' : cycles?.total_cycles} accent="amber" />
-        <article className={`debt-card ${cycles?.has_architectural_debt ? 'debt' : 'clean'}`}>
-          <span>Architectural debt status</span>
-          <strong>{loading ? 'Checking…' : cycles?.has_architectural_debt ? 'Attention required' : 'No cycle debt detected'}</strong>
-        </article>
-      </div>
-      <Panel title="Dependency loops" subtitle="Observed cycles from the mock graph">
-        {cycles?.cycles?.length ? (
-          <div className="cycle-list">
-            {cycles.cycles.map((cycle, index) => (
-              <article className="cycle-card" key={`${cycle.join('-')}-${index}`}>
-                <div className="cycle-index">{index + 1}</div>
-                <div className="cycle-chain">
-                  {[...cycle, cycle[0]].map((node, nodeIndex, chain) => (
-                    <span key={`${node}-${nodeIndex}`}>
-                      <code>{node}</code>
-                      {nodeIndex < chain.length - 1 && <b>→</b>}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : <p className="empty-copy">{loading ? 'Loading cycle analysis…' : 'No circular dependencies detected.'}</p>}
-      </Panel>
+      {cycles?.cycles?.length ? (
+        <section className="cycle-list" aria-label="Detected dependency cycles">
+          {cycles.cycles.map((cycle, index) => (
+            <article className="cycle-row" key={`${cycle.join('-')}-${index}`}>
+              <span className="cycle-number">{index + 1}</span>
+              <div className="cycle-chain">
+                {[...cycle, cycle[0]].map((nodeId, nodeIndex, chain) => (
+                  <span className="cycle-step" key={`${nodeId}-${nodeIndex}`}>
+                    <button
+                      type="button"
+                      className="cycle-component"
+                      onClick={() => onOpenComponent(nodeId)}
+                      title={nodeId}
+                      aria-label={`Open details for ${nodeNames.get(nodeId) || nodeId}`}
+                    >
+                      {nodeNames.get(nodeId) || nodeId}
+                    </button>
+                    {nodeIndex < chain.length - 1 && <span className="cycle-arrow" aria-hidden="true">→</span>}
+                  </span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </section>
+      ) : (
+        !loading && !error && <p className="cycle-empty">No circular dependencies detected.</p>
+      )}
+      {loading && <p className="cycle-empty" role="status">Loading cycles…</p>}
     </div>
   )
 }
@@ -634,6 +747,7 @@ export default function App() {
   const [schema, setSchema] = useState(null)
   const [nodes, setNodes] = useState([])
   const [cycles, setCycles] = useState(null)
+  const [graphOpenNodeId, setGraphOpenNodeId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reports, setReports] = useState([])
@@ -666,6 +780,11 @@ export default function App() {
     setReports((current) => [...current, { query: result.user_query, text: result.report_markdown }])
   }
 
+  function openGraphComponent(nodeId) {
+    setGraphOpenNodeId(nodeId)
+    setActiveView('graph')
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -692,9 +811,9 @@ export default function App() {
         <div className="content">
           {activeView === 'dashboard' && <Dashboard health={health} schema={schema} cycles={cycles} loading={loading} error={error} onRetry={loadDashboard} />}
           {activeView === 'chat' && <ChatView onReport={rememberNavigationReport} />}
-          {activeView === 'graph' && <GraphView nodes={nodes} schema={schema} />}
+          {activeView === 'graph' && <GraphView nodes={nodes} schema={schema} openNodeId={graphOpenNodeId} />}
           {activeView === 'blast' && <BlastView nodes={nodes} />}
-          {activeView === 'cycles' && <CyclesView cycles={cycles} loading={loading} error={error} onRetry={loadDashboard} />}
+          {activeView === 'cycles' && <CyclesView cycles={cycles} nodes={nodes} loading={loading} error={error} onRetry={loadDashboard} onOpenComponent={openGraphComponent} />}
           {activeView === 'reports' && <ReportsView reports={reports} />}
         </div>
       </main>
